@@ -1,0 +1,716 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Digital Calculator</title>
+    <!-- Tailwind CSS CDN for styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Three.js CDN for 3D animations -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <style>
+        /* Custom styles for the Inter font and overall body */
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f0f4f8; /* Light blue-gray background */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh; /* Full viewport height */
+            margin: 0;
+            padding: 1rem; /* Padding for mobile responsiveness */
+            box-sizing: border-box; /* Include padding in element's total width and height */
+            overflow: hidden; /* Hide overflow from 3D canvas */
+        }
+
+        /* Styles for the 3D background canvas */
+        canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            z-index: -1; /* Place behind other content */
+            display: block; /* Remove extra space below canvas */
+        }
+
+        /* Container for the calculator to center it and give it a nice look */
+        .calculator-container {
+            background-color: #ffffff; /* White background for the calculator */
+            border-radius: 1.5rem; /* More rounded corners */
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04); /* Deeper shadow */
+            max-width: 550px; /* Max width for larger screens */
+            width: 100%; /* Full width on smaller screens */
+            padding: 2rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem; /* Space between sections */
+            border: 1px solid #e2e8f0; /* Light border */
+            position: relative; /* For z-index to work against fixed 3D canvas */
+            z-index: 1;
+        }
+
+        /* Styles for the tab navigation */
+        .tab-button {
+            padding: 0.75rem 1rem; /* Slightly less padding for more tabs */
+            border-radius: 9999px; /* Fully rounded pills */
+            font-weight: 600; /* Semi-bold text */
+            transition: all 0.2s ease-in-out; /* Smooth transition for hover/active states */
+            cursor: pointer;
+            text-align: center;
+            flex-grow: 1; /* Allows buttons to take equal space */
+            color: #4a5568; /* Darker gray text */
+            font-size: 0.95rem; /* Slightly smaller font for tabs */
+            white-space: nowrap; /* Prevent text wrapping */
+        }
+
+        .tab-button.active {
+            background-color: #4c51bf; /* Deeper indigo for active tab */
+            color: #ffffff; /* White text for active tab */
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06); /* Subtle shadow for active tab */
+        }
+
+        .tab-button:not(.active):hover {
+            background-color: #edf2f7; /* Light gray on hover for inactive tabs */
+            color: #2d3748; /* Even darker gray text on hover */
+        }
+
+        /* Input field styling */
+        .input-field {
+            width: 100%;
+            padding: 0.75rem 1rem;
+            border: 2px solid #cbd5e0; /* Slightly thicker border */
+            border-radius: 0.75rem; /* Rounded corners for inputs */
+            font-size: 1rem;
+            color: #2d3748;
+            outline: none; /* Remove default outline */
+            transition: border-color 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+        }
+
+        .input-field:focus {
+            border-color: #667eea; /* Indigo border on focus */
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.25); /* Light shadow on focus */
+        }
+
+        /* Result display styling */
+        .result-display {
+            background-color: #e0f2fe; /* Light blue background for results */
+            padding: 1.25rem;
+            border-radius: 1rem; /* Rounded corners */
+            font-size: 1.125rem; /* Slightly larger font */
+            font-weight: 500; /* Medium weight */
+            color: #2c5282; /* Darker blue text */
+            text-align: center;
+            min-height: 4rem; /* Ensure minimum height */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            word-break: break-word; /* Break long words */
+        }
+
+        /* Button styling for actions */
+        .action-button {
+            background-color: #4c51bf; /* Indigo background */
+            color: white;
+            padding: 0.85rem 1.5rem;
+            border-radius: 0.75rem;
+            font-weight: 700; /* Bold text */
+            font-size: 1.1rem;
+            cursor: pointer;
+            transition: background-color 0.2s ease-in-out, transform 0.1s ease-in-out;
+            border: none;
+            width: 100%; /* Full width button */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+
+        .action-button:hover {
+            background-color: #434190; /* Darker indigo on hover */
+            transform: translateY(-2px); /* Slight lift effect */
+        }
+
+        .action-button:active {
+            transform: translateY(0); /* Press down effect */
+            box-shadow: none;
+        }
+
+        /* Hide elements by default and show based on active tab */
+        .tab-content {
+            display: none;
+        }
+        .tab-content.active {
+            display: block;
+        }
+
+        /* Custom styling for the "Developed by Raju" text */
+        .developer-credit {
+            font-size: 1.1rem; /* Slightly larger font for prominence */
+            font-weight: 800; /* Extra bold */
+            color: #4c51bf; /* Primary indigo color */
+            text-shadow:
+                1px 1px 0px #805ad5,   /* Light purple shadow for 3D effect */
+                2px 2px 0px #6b46c1,
+                3px 3px 0px #553c9a,
+                4px 4px 2px rgba(0, 0, 0, 0.3); /* Deeper black shadow for overall depth */
+            transition: all 0.2s ease-in-out; /* Smooth transition for hover */
+        }
+
+        .developer-credit:hover {
+            color: #667eea; /* Lighter indigo on hover */
+            text-shadow:
+                1px 1px 0px #9f7aea,
+                2px 2px 0px #8a63d2,
+                3px 3px 0px #7047b7,
+                4px 4px 5px rgba(0, 0, 0, 0.4);
+            transform: translateY(-2px); /* Slight lift */
+        }
+
+
+        /* Responsive adjustments for smaller screens */
+        @media (max-width: 640px) {
+            .calculator-container {
+                padding: 1.5rem;
+                border-radius: 1rem;
+            }
+            .tab-button {
+                padding: 0.6rem 0.75rem; /* Even less padding for tiny screens */
+                font-size: 0.85rem;
+            }
+            .result-display {
+                font-size: 1rem;
+            }
+            .action-button {
+                font-size: 1rem;
+                padding: 0.75rem 1.25rem;
+            }
+            .flex.space-x-2 {
+                overflow-x: auto; /* Allow horizontal scrolling if tabs don't fit */
+                -webkit-overflow-scrolling: touch; /* Smooth scrolling on iOS */
+                padding-bottom: 0.5rem; /* Space for scrollbar */
+                justify-content: flex-start; /* Align items to start for scrollable tabs */
+                gap: 0.5rem; /* Smaller gap between tabs */
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="calculator-container">
+        <!-- Application Title -->
+        <h1 class="text-3xl font-extrabold text-center text-gray-800 mb-4">
+            Digital Calculator
+        </h1>
+
+        <!-- Tab Navigation -->
+        <div class="flex space-x-2 bg-indigo-100 p-1 rounded-full justify-between overflow-x-auto">
+            <button id="ageTabBtn" class="tab-button active">
+                Age
+            </button>
+            <button id="profit1TabBtn" class="tab-button">
+                Profit
+            </button>
+            <button id="normal1TabBtn" class="tab-button">
+                Normal
+            </button>
+            <button id="loveTabBtn" class="tab-button">
+                Love
+            </button>
+        </div>
+
+        <!-- Age Calculator Content -->
+        <div id="ageCalculator" class="tab-content active">
+            <div class="flex flex-col gap-4">
+                <h2 class="text-xl font-bold text-gray-700">Calculate Your Age</h2>
+                <div>
+                    <label for="dobInput" class="block text-gray-600 text-sm font-medium mb-1">
+                        Enter Your Date of Birth:
+                    </label>
+                    <input type="date" id="dobInput" class="input-field" />
+                </div>
+                <button id="calculateAgeBtn" class="action-button">
+                    Calculate Age
+                </button>
+                <div id="ageResult" class="result-display">
+                    Your age will appear here.
+                </div>
+            </div>
+        </div>
+
+        <!-- Profit Calculator 1 Content -->
+        <div id="profitCalculator1" class="tab-content">
+            <div class="flex flex-col gap-4">
+                <h2 class="text-xl font-bold text-gray-700">Calculate Profit/Loss</h2>
+                <div>
+                    <label for="costPriceInput_p1" class="block text-gray-600 text-sm font-medium mb-1">
+                        Cost Price ($):
+                    </label>
+                    <input type="number" id="costPriceInput_p1" class="input-field" placeholder="e.g., 100" step="0.01" />
+                </div>
+                <div>
+                    <label for="sellPriceInput_p1" class="block text-gray-600 text-sm font-medium mb-1">
+                        Selling Price ($):
+                    </label>
+                    <input type="number" id="sellPriceInput_p1" class="input-field" placeholder="e.g., 120" step="0.01" />
+                </div>
+                <button id="calculateProfitBtn_p1" class="action-button">
+                    Calculate Profit/Loss
+                </button>
+                <div id="profitResult_p1" class="result-display">
+                    Profit/Loss details will appear here.
+                </div>
+            </div>
+        </div>
+
+        <!-- Normal Calculator 1 Content -->
+        <div id="normalCalculator1" class="tab-content">
+            <div class="flex flex-col gap-4">
+                <h2 class="text-xl font-bold text-gray-700">Basic Calculator</h2>
+                <div>
+                    <label for="num1Input_n1" class="block text-gray-600 text-sm font-medium mb-1">
+                        Number 1:
+                    </label>
+                    <input type="number" id="num1Input_n1" class="input-field" placeholder="e.g., 10" step="any" />
+                </div>
+                <div>
+                    <label for="num2Input_n1" class="block text-gray-600 text-sm font-medium mb-1">
+                        Number 2:
+                    </label>
+                    <input type="number" id="num2Input_n1" class="input-field" placeholder="e.g., 5" step="any" />
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <button id="addBtn_n1" class="action-button">Add (+)</button>
+                    <button id="subtractBtn_n1" class="action-button">Subtract (-)</button>
+                    <button id="multiplyBtn_n1" class="action-button">Multiply (*)</button>
+                    <button id="divideBtn_n1" class="action-button">Divide (/)</button>
+                </div>
+                <div id="normalResult_n1" class="result-display">
+                    Result will appear here.
+                </div>
+            </div>
+        </div>
+
+        <!-- Love Calculator Content -->
+        <div id="loveCalculator" class="tab-content">
+            <div class="flex flex-col gap-4">
+                <h2 class="text-xl font-bold text-gray-700">Love Calculator ❤️</h2>
+                <div>
+                    <label for="boyNameInput" class="block text-gray-600 text-sm font-medium mb-1">
+                        Boy's Name:
+                    </label>
+                    <input type="text" id="boyNameInput" class="input-field" placeholder="e.g., Romeo" />
+                </div>
+                <div>
+                    <label for="girlNameInput" class="block text-gray-600 text-sm font-medium mb-1">
+                        Girl's Name:
+                    </label>
+                    <input type="text" id="girlNameInput" class="input-field" placeholder="e.g., Juliet" />
+                </div>
+                <button id="calculateLoveBtn" class="action-button">
+                    Calculate Love
+                </button>
+                <div id="loveResult" class="result-display">
+                    Enter names and see your love score!
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="text-center text-gray-500 text-sm mt-6">
+            <p class="developer-credit">Developed by Raju</p>
+            <p>Connect on <a href="https://t.me/r366grp" target="_blank" class="text-indigo-600 hover:underline">Telegram</a></p>
+        </div>
+    </div>
+
+    <script>
+        // --- Tab Switching Logic ---
+        const ageTabBtn = document.getElementById('ageTabBtn');
+        const profit1TabBtn = document.getElementById('profit1TabBtn');
+        const normal1TabBtn = document.getElementById('normal1TabBtn');
+        const loveTabBtn = document.getElementById('loveTabBtn');
+
+        const ageCalculatorDiv = document.getElementById('ageCalculator');
+        const profitCalculator1Div = document.getElementById('profitCalculator1');
+        const normalCalculator1Div = document.getElementById('normalCalculator1');
+        const loveCalculatorDiv = document.getElementById('loveCalculator');
+
+        /**
+         * Switches the active tab in the calculator interface.
+         * @param {string} activeTabId - The ID of the tab to activate ('age', 'profit1', 'normal1', 'love').
+         */
+        function switchTab(activeTabId) {
+            // Get all tab buttons and content divs
+            const allTabBtns = [ageTabBtn, profit1TabBtn, normal1TabBtn, loveTabBtn];
+            const allTabContents = [ageCalculatorDiv, profitCalculator1Div, normalCalculator1Div, loveCalculatorDiv];
+
+            // Remove 'active' class from all tab buttons and content divs
+            allTabBtns.forEach(btn => btn.classList.remove('active'));
+            allTabContents.forEach(div => div.classList.remove('active'));
+
+            // Add 'active' class to the selected tab button and content div
+            if (activeTabId === 'age') {
+                ageTabBtn.classList.add('active');
+                ageCalculatorDiv.classList.add('active');
+            } else if (activeTabId === 'profit1') {
+                profit1TabBtn.classList.add('active');
+                profitCalculator1Div.classList.add('active');
+            } else if (activeTabId === 'normal1') {
+                normal1TabBtn.classList.add('active');
+                normalCalculator1Div.classList.add('active');
+            } else if (activeTabId === 'love') {
+                loveTabBtn.classList.add('active');
+                loveCalculatorDiv.classList.add('active');
+            }
+        }
+
+        // Event listeners for tab buttons
+        ageTabBtn.addEventListener('click', () => switchTab('age'));
+        profit1TabBtn.addEventListener('click', () => switchTab('profit1'));
+        normal1TabBtn.addEventListener('click', () => switchTab('normal1'));
+        loveTabBtn.addEventListener('click', () => switchTab('love'));
+
+        // Default to age calculator on initial load
+        switchTab('age');
+
+        // --- Age Calculator Logic ---
+        const dobInput = document.getElementById('dobInput');
+        const calculateAgeBtn = document.getElementById('calculateAgeBtn');
+        const ageResultDiv = document.getElementById('ageResult');
+
+        calculateAgeBtn.addEventListener('click', () => {
+            const dobString = dobInput.value;
+
+            // Check if a date is entered
+            if (!dobString) {
+                ageResultDiv.textContent = "Please enter your date of birth.";
+                return;
+            }
+
+            const dob = new Date(dobString);
+            const today = new Date();
+
+            // Check for invalid date
+            if (isNaN(dob.getTime())) {
+                ageResultDiv.textContent = "Invalid date format. Please use a valid date.";
+                return;
+            }
+
+            // Calculate age in years
+            let ageYears = today.getFullYear() - dob.getFullYear();
+            let ageMonths = today.getMonth() - dob.getMonth();
+            let ageDays = today.getDate() - dob.getDate();
+
+            // Adjust months and years if birthday hasn't occurred yet this year
+            if (ageDays < 0) {
+                ageMonths--;
+                // Add days from the previous month to ageDays. This handles varying month lengths.
+                ageDays += new Date(today.getFullYear(), today.getMonth(), 0).getDate();
+            }
+
+            if (ageMonths < 0) {
+                ageYears--;
+                ageMonths += 12;
+            }
+
+            // Display the result
+            ageResultDiv.textContent = `You are ${ageYears} years, ${ageMonths} months, and ${ageDays} days old.`;
+        });
+
+        // --- Profit Calculator Logic (Reusable Function) ---
+        /**
+         * Calculates profit or loss based on cost price and selling price.
+         * @param {string} costInputId - ID of the cost price input field.
+         * @param {string} sellInputId - ID of the selling price input field.
+         * @param {string} resultDivId - ID of the result display div.
+         */
+        function calculateProfitLoss(costInputId, sellInputId, resultDivId) {
+            const costPriceInput = document.getElementById(costInputId);
+            const sellPriceInput = document.getElementById(sellInputId);
+            const profitResultDiv = document.getElementById(resultDivId);
+
+            const costPrice = parseFloat(costPriceInput.value);
+            const sellPrice = parseFloat(sellPriceInput.value);
+
+            // Validate inputs
+            if (isNaN(costPrice) || isNaN(sellPrice) || costPrice < 0 || sellPrice < 0) {
+                profitResultDiv.textContent = "Please enter valid positive numbers for both prices.";
+                return;
+            }
+
+            const profitLoss = sellPrice - costPrice;
+            let profitLossPercentage = 0;
+
+            // Calculate percentage, avoid division by zero
+            if (costPrice > 0) {
+                profitLossPercentage = (profitLoss / costPrice) * 100;
+            } else if (costPrice === 0 && sellPrice > 0) {
+                profitResultDiv.textContent = "Profit: $" + sellPrice.toFixed(2) + ". Percentage cannot be calculated with zero cost and positive selling price.";
+                return;
+            } else if (costPrice === 0 && sellPrice === 0) {
+                 profitResultDiv.textContent = "Cost and selling prices are both zero. No profit or loss.";
+                return;
+            }
+
+            // Display the result based on profit or loss
+            if (profitLoss > 0) {
+                profitResultDiv.textContent = `Profit: $${profitLoss.toFixed(2)} (${profitLossPercentage.toFixed(2)}%) 🎉`;
+            } else if (profitLoss < 0) {
+                profitResultDiv.textContent = `Loss: $${Math.abs(profitLoss).toFixed(2)} (${Math.abs(profitLossPercentage).toFixed(2)}%) 📉`;
+            } else {
+                profitResultDiv.textContent = "No Profit, No Loss. 🤝";
+            }
+        }
+
+        // Profit Calculator 1 Event Listener
+        document.getElementById('calculateProfitBtn_p1').addEventListener('click', () => {
+            calculateProfitLoss('costPriceInput_p1', 'sellPriceInput_p1', 'profitResult_p1');
+        });
+
+        // --- Normal Calculator Logic (Reusable Function) ---
+        /**
+         * Performs a basic arithmetic operation.
+         * @param {string} num1InputId - ID of the first number input field.
+         * @param {string} num2InputId - ID of the second number input field.
+         * @param {string} resultDivId - ID of the result display div.
+         * @param {string} operation - The operation to perform ('add', 'subtract', 'multiply', 'divide').
+         */
+        function performNormalCalculation(num1InputId, num2InputId, resultDivId, operation) {
+            const num1Input = document.getElementById(num1InputId);
+            const num2Input = document.getElementById(num2InputId);
+            const normalResultDiv = document.getElementById(resultDivId);
+
+            const num1 = parseFloat(num1Input.value);
+            const num2 = parseFloat(num2Input.value);
+
+            // Validate inputs
+            if (isNaN(num1) || isNaN(num2)) {
+                normalResultDiv.textContent = "Please enter valid numbers.";
+                return;
+            }
+
+            let result;
+            switch (operation) {
+                case 'add':
+                    result = num1 + num2;
+                    break;
+                case 'subtract':
+                    result = num1 - num2;
+                    break;
+                case 'multiply':
+                    result = num1 * num2;
+                    break;
+                    case 'divide':
+                    if (num2 === 0) {
+                        normalResultDiv.textContent = "Error: Division by zero.";
+                        return;
+                    }
+                    result = num1 / num2;
+                    break;
+                default:
+                    normalResultDiv.textContent = "Invalid operation.";
+                    return;
+            }
+
+            normalResultDiv.textContent = `Result: ${result.toFixed(2)}`; // Round to 2 decimal places
+        }
+
+        // Normal Calculator 1 Event Listeners
+        document.getElementById('addBtn_n1').addEventListener('click', () => {
+            performNormalCalculation('num1Input_n1', 'num2Input_n1', 'normalResult_n1', 'add');
+        });
+        document.getElementById('subtractBtn_n1').addEventListener('click', () => {
+            performNormalCalculation('num1Input_n1', 'num2Input_n1', 'normalResult_n1', 'subtract');
+        });
+        document.getElementById('multiplyBtn_n1').addEventListener('click', () => {
+            performNormalCalculation('num1Input_n1', 'num2Input_n1', 'normalResult_n1', 'multiply');
+        });
+        document.getElementById('divideBtn_n1').addEventListener('click', () => {
+            performNormalCalculation('num1Input_n1', 'num2Input_n1', 'normalResult_n1', 'divide');
+        });
+
+        // --- Love Calculator Logic ---
+        const boyNameInput = document.getElementById('boyNameInput');
+        const girlNameInput = document.getElementById('girlNameInput');
+        const calculateLoveBtn = document.getElementById('calculateLoveBtn');
+        const loveResultDiv = document.getElementById('loveResult');
+
+        /**
+         * Calculates a deterministic love percentage based on two names.
+         * @param {string} name1 - The first name.
+         * @param {string} name2 - The second name.
+         * @returns {number} The love percentage (0-100).
+         */
+        function calculateLovePercentage(name1, name2) {
+            const combinedNames = (name1.toLowerCase() + name2.toLowerCase()).replace(/\s/g, '');
+
+            if (combinedNames.length === 0) {
+                return 0; // No names entered
+            }
+
+            let sumCharCodes = 0;
+            for (let i = 0; i < combinedNames.length; i++) {
+                sumCharCodes += combinedNames.charCodeAt(i);
+            }
+
+            // A simple, deterministic formula to generate a percentage between 0 and 100
+            // This ensures the same names always yield the same result.
+            let percentage = (sumCharCodes * 7 % 97 + 10) % 101;
+            if (percentage < 0) percentage += 101; // Ensure positive
+
+            return percentage;
+        }
+
+        calculateLoveBtn.addEventListener('click', () => {
+            const boyName = boyNameInput.value.trim();
+            const girlName = girlNameInput.value.trim();
+
+            if (!boyName || !girlName) {
+                loveResultDiv.textContent = "Please enter both names to calculate love.";
+                loveResultDiv.className = 'result-display text-gray-700'; // Reset color
+                return;
+            }
+
+            const percentage = calculateLovePercentage(boyName, girlName);
+
+            // Clear previous classes to apply new styling
+            loveResultDiv.className = 'result-display font-bold';
+
+            let message = '';
+            let textColorClass = '';
+
+            if (percentage >= 90) {
+                message = `It's a perfect match! ❤️‍🔥 ${percentage}% ❤️‍🔥\nLove is in the air! ✨`;
+                textColorClass = 'text-green-600'; // Green for high love
+            } else if (percentage >= 70) {
+                message = `Great potential! 🥰 ${percentage}% 🥰\nThings are looking good!`;
+                textColorClass = 'text-blue-600'; // Blue for good potential
+            } else if (percentage >= 50) {
+                message = `There's something there! 😊 ${percentage}% 😊\nKeep trying!`;
+                textColorClass = 'text-yellow-600'; // Yellow for some potential
+            } else {
+                message = `It might be tough... 💔 ${percentage}% 💔\nDon't lose hope! 💧`;
+                textColorClass = 'text-red-600'; // Red for low love
+            }
+
+            loveResultDiv.textContent = message;
+            loveResultDiv.classList.add(textColorClass); // Apply color class
+        });
+
+
+        // --- 3D Animation Logic (Three.js) ---
+        let scene, camera, renderer, objects = [];
+
+        /**
+         * Initializes the Three.js scene, camera, renderer, and adds objects.
+         */
+        function init3D() {
+            // Scene: where objects, lights, and cameras live
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0xf0f4f8); // Match body background color
+
+            // Camera: defines what portion of the scene is visible
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.z = 5; // Position the camera slightly back
+
+            // Renderer: renders the scene using WebGL
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true }); // Antialias for smooth edges, alpha for transparent background
+            renderer.setSize(window.innerWidth, window.innerHeight); // Set renderer size to full window
+            renderer.setPixelRatio(window.devicePixelRatio); // Handle high-DPI screens
+            document.body.appendChild(renderer.domElement); // Add renderer's canvas to the DOM
+
+            // Position the canvas to cover the whole background
+            renderer.domElement.style.position = 'fixed';
+            renderer.domElement.style.top = '0';
+            renderer.domElement.style.left = '0';
+            renderer.domElement.style.zIndex = '-1'; // Crucial: place behind the calculator container
+
+            // Lighting: Makes objects visible and creates shadows
+            const ambientLight = new THREE.AmbientLight(0x404040); // Soft white light, illuminates all objects equally
+            scene.add(ambientLight);
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 0.5); // White light, from a specific direction
+            directionalLight.position.set(0, 1, 0); // Position it from the top
+            scene.add(directionalLight);
+
+            // Create some random geometric shapes (cubes and toruses) for subtle animation
+            const numObjects = 15; // Number of floating objects
+            for (let i = 0; i < numObjects; i++) {
+                let geometry;
+                // Randomly choose between BoxGeometry and TorusGeometry
+                if (Math.random() > 0.5) {
+                    geometry = new THREE.BoxGeometry(
+                        0.5 + Math.random() * 1.5, // Random size
+                        0.5 + Math.random() * 1.5,
+                        0.5 + Math.random() * 1.5
+                    );
+                } else {
+                    geometry = new THREE.TorusGeometry(
+                        0.5 + Math.random() * 1, // Radius
+                        0.1 + Math.random() * 0.2, // Tube radius
+                        16, // Radial segments
+                        50 // Tubular segments
+                    );
+                }
+
+                // Use a subtle material that matches the theme and looks ethereal
+                const material = new THREE.MeshBasicMaterial({
+                    color: new THREE.Color(Math.random() * 0.2 + 0.3, Math.random() * 0.2 + 0.4, Math.random() * 0.2 + 0.8), // Shades of light blue/purple
+                    wireframe: true, // Wireframe for a more abstract look
+                    transparent: true, // Allow transparency
+                    opacity: 0.2 + Math.random() * 0.3 // Random opacity for depth
+                });
+                const obj = new THREE.Mesh(geometry, material);
+
+                // Randomly position objects across a wider area
+                obj.position.set(
+                    (Math.random() - 0.5) * 20, // X position
+                    (Math.random() - 0.5) * 20, // Y position
+                    (Math.random() - 0.5) * 20  // Z position
+                );
+                // Give them initial random rotations
+                obj.rotation.set(
+                    Math.random() * Math.PI,
+                    Math.random() * Math.PI,
+                    Math.random() * Math.PI
+                );
+
+                objects.push(obj); // Store objects to animate them later
+                scene.add(obj); // Add object to the scene
+            }
+        }
+
+        /**
+         * The animation loop for the 3D scene.
+         */
+        function animate3D() {
+            requestAnimationFrame(animate3D); // Loop this function
+
+            // Animate each object
+            objects.forEach(obj => {
+                obj.rotation.x += 0.003; // Slowly rotate around X-axis
+                obj.rotation.y += 0.003; // Slowly rotate around Y-axis
+                obj.position.y += Math.sin(Date.now() * 0.0001 + obj.position.x) * 0.001; // Subtle bobbing motion
+            });
+
+            renderer.render(scene, camera); // Render the scene with the camera
+        }
+
+        /**
+         * Handles window resize events to keep the 3D canvas responsive.
+         */
+        function onWindowResize3D() {
+            camera.aspect = window.innerWidth / window.innerHeight; // Update aspect ratio
+            camera.updateProjectionMatrix(); // Apply changes to the camera
+            renderer.setSize(window.innerWidth, window.innerHeight); // Update renderer size
+        }
+
+        // Add event listener for window resizing
+        window.addEventListener('resize', onWindowResize3D);
+
+        // Initialize and start the 3D animation when the window loads
+        window.onload = function () {
+            init3D();
+            animate3D();
+        };
+
+    </script>
+</body>
+</html>
